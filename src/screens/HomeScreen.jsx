@@ -53,7 +53,7 @@ const HomeScreen = () => {
 
 export default HomeScreen;
 
-const styles = StyleSheet.create({
+export const styles = StyleSheet.create({
   // Add styles here if needed
   container: {
       flex: 1,
