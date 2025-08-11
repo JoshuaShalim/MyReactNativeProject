@@ -81,6 +81,8 @@ android {
     namespace "com.myreactnativeproject"
     defaultConfig {
         applicationId "com.myreactnativeproject"
+        manifestPlaceholders = [
+        appAuthRedirectScheme: "com.myreactnativeproject"]
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

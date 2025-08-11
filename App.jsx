@@ -1,3 +1,6 @@
+import 'react-native-url-polyfill/auto';
+import 'react-native-get-random-values';
+
 import React from 'react';
 
 import { StyleSheet } from 'react-native';
@@ -5,6 +8,8 @@ import { StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
+import DashboardScreen
+  from './src/screens/DashboardScreen';  // Make sure this path is correct
 import HomeScreen
   from './src/screens/HomeScreen';  // Make sure this path is correct
 import LoginScreen
@@ -20,6 +25,7 @@ const App = () => {
         <Stack.Screen name="HOME" component={HomeScreen} />
         <Stack.Screen name="LOGIN" component={LoginScreen} />
         <Stack.Screen name="SIGNUP" component={SignupScreen} />
+        <Stack.Screen name="DASHBOARD" component={DashboardScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
