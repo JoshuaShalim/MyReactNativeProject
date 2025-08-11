@@ -78,15 +78,17 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.myreactnativeproject"
+    namespace "com.Omnix"
     defaultConfig {
-        applicationId "com.myreactnativeproject"
-        manifestPlaceholders = [
-        appAuthRedirectScheme: "com.myreactnativeproject"]
+        applicationId "com.Omnix"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
+        // Used by react-native-app-auth intent-filter in AndroidManifest.xml
+        manifestPlaceholders = [
+            appAuthRedirectScheme: "com.Omnix"
+        ]
     }
     signingConfigs {
         debug {

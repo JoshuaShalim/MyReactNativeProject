@@ -135,7 +135,7 @@ const handleGoogleSignIn = async () => {
     const config = {
       issuer: 'https://accounts.google.com',
       clientId: 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com',
-      redirectUrl: 'com.yourappname://login',
+      redirectUrl: 'com.Omnix://login',
       scopes: ['openid', 'profile', 'email'],
     };
 

@@ -1,4 +1,4 @@
-package com.myreactnativeproject
+package com.Omnix
 
 import android.app.Application
 import com.facebook.react.PackageList

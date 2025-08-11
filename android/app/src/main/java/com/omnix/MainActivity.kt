@@ -1,4 +1,4 @@
-package com.myreactnativeproject
+package com.Omnix
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate

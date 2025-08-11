@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 
 import {
+  Alert,
   Image,
   StyleSheet,
   Text,
@@ -13,20 +14,87 @@ import SimpleLineIcons from 'react-native-vector-icons/SimpleLineIcons';
 
 import { useNavigation } from '@react-navigation/native';
 
+import { supabase } from '../lib/supabaseClient';
 import { colors } from '../utils/colors';
 import { fonts } from '../utils/fonts';
 
+// import { authorize } from 'react-native-app-auth';
+
 const SignupScreen = () => {
   const navigation = useNavigation();
-  const handleLogin = () => {
-    // navigate to Login screen
-    navigation.navigate('LOGIN');
-  };
+  const [secureEntry, setSecureEntry] = useState(true);
+  // State variables for form inputs
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
   const handleBack = () => {
     // Navigate back to HomeScreen
     navigation.navigate('HOME');
   };
-  const [secureEntry, setSecureEntry] = useState(true);
+  const handleLogin = () => {
+    // navigate to Login screen
+    navigation.navigate('LOGIN');
+  };
+
+  const validateForm = () => {
+    // Email validation regex
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert('Invalid Email', 'Please enter a valid email address');
+      return false;
+    }
+
+    // Phone validation regex (digits only, min 8–10 numbers)
+    const phoneRegex = /^[0-9]{8,15}$/;
+    if (!phoneRegex.test(phone)) {
+      Alert.alert(
+        'Invalid Phone',
+        'Please enter a valid phone number (8–15 digits)',
+      );
+      return false;
+    }
+
+    // Password validation regex
+    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*]).{8,}$/;
+    if (!passwordRegex.test(password)) {
+      Alert.alert(
+        'Weak Password',
+        'Password must be at least 8 characters long and include a letter, a number, and a special character',
+      );
+      return false;
+    }
+
+    return true;
+  };
+
+  // Function to handle form submission
+  const handleSignup = async () => {
+    if (!validateForm()) return; // If validation fails, stop here
+
+    try {
+      setLoading(true);
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        phone,
+      });
+
+      if (error) {
+        Alert.alert('Signup Error', error.message);
+      } else {
+        Alert.alert('Success', 'Please check your email for confirmation');
+        navigation.navigate('LOGIN');
+      }
+    } catch (err) {
+      Alert.alert('Unexpected Error', err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Render the Signup screen
   return (
     <View style={styles.container}>
       <View style={styles.backButtonContainer}>
@@ -54,6 +122,8 @@ const SignupScreen = () => {
             placeholder="Enter your email"
             placeholderTextColor={colors.secondary}
             keyboardType="email-address"
+            value={email}
+            onChangeText={setEmail}
           />
         </View>
       </View>
@@ -68,10 +138,14 @@ const SignupScreen = () => {
             style={styles.textInput}
             placeholder="Enter your phone number"
             placeholderTextColor={colors.secondary}
-            keyboardType="phone-pad"
+            keyboardType="number-pad"
+            value={phone}
+            onChangeText={text => setPhone(text.replace(/[^0-9]/g, ''))} // remove non-numbers
+            maxLength={12} // limit to 12 digits
           />
         </View>
       </View>
+      {/* Password input */}
       <View style={styles.formContainer}>
         <View style={styles.inputContainer}>
           <SimpleLineIcons name="lock" size={23} color={colors.secondary} />
@@ -80,16 +154,49 @@ const SignupScreen = () => {
             placeholder="Enter your password"
             placeholderTextColor={colors.secondary}
             secureTextEntry={secureEntry}
+            value={password}
+            onChangeText={setPassword}
           />
           <TouchableOpacity onPress={() => setSecureEntry(!secureEntry)}>
-            <SimpleLineIcons name="eye" size={23} color={colors.secondary} />
+            <Ionicons
+              name={secureEntry ? 'eye-outline' : 'eye-off-outline'}
+              size={23}
+              color={colors.secondary}
+            />
           </TouchableOpacity>
         </View>
+        {/* Password Requirements */}
+        <Text
+          style={{
+            fontSize: 12,
+            marginLeft: 20,
+            color:
+              password.length >= 8 &&
+              /\d/.test(password) &&
+              /[!@#$%^&*]/.test(password)
+                ? 'green'
+                : 'red',
+          }}
+        >
+          Must be at least 8 characters, include a number and a special
+          character
+        </Text>
       </View>
-      <TouchableOpacity style={styles.signupButtonWrapper}>
+      {/* <TouchableOpacity style={styles.signupButtonWrapper}>
         <Text style={styles.signupText}>Sign up</Text>
+      </TouchableOpacity> */}
+      <TouchableOpacity
+        style={styles.signupButtonWrapper}
+        onPress={handleSignup}
+        disabled={loading}
+      >
+        <Text style={styles.signupText}>
+          {loading ? 'Signing up...' : 'Sign up'}
+        </Text>
       </TouchableOpacity>
+      {/* Divider */}
       <Text style={styles.continueText}>Or continue with</Text>
+      {/* Google Auth Button */}
       <TouchableOpacity style={styles.googleButtonContainer}>
         <Image
           source={require('../assets/google.png')}
