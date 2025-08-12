@@ -1,7 +1,7 @@
 import 'react-native-url-polyfill/auto';
 import 'react-native-get-random-values';
 
-import React from 'react';
+import React, { useState } from 'react';
 
 import { StyleSheet } from 'react-native';
 
@@ -15,10 +15,21 @@ import HomeScreen
 import LoginScreen
   from './src/screens/LoginScreen';  // Make sure this path is correct
 import SignupScreen from './src/screens/SignupScreen';
+import SplashScreen from './src/screens/SplashScreen';
 
 const Stack = createNativeStackNavigator();
 
 const App = () => {
+  const [isLoading, setIsLoading] = useState(true);
+
+  const handleSplashComplete = () => {
+    setIsLoading(false);
+  };
+
+  if (isLoading) {
+    return <SplashScreen onAnimationComplete={handleSplashComplete} />;
+  }
+
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>

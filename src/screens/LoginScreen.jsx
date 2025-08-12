@@ -5,6 +5,7 @@ import {
   Alert,
   Image,
   Keyboard,
+  Linking,
   Modal,
   StyleSheet,
   Text,
@@ -13,7 +14,7 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
-import { authorize } from 'react-native-app-auth';
+import InAppBrowser from 'react-native-inappbrowser-reborn';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import SimpleLineIcons from 'react-native-vector-icons/SimpleLineIcons';
 
@@ -41,12 +42,16 @@ const LoginScreen = () => {
   // Regular expression for email validation
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-   // Handle Back Navigation
+  const redirectUri = 'com.omnix://login';
+
+  // Handle Back Navigation
   const handleBack = () => {
+    if (loading) return; // Prevent navigation while loading
     navigation.goBack();
   };
   // Handle Signup Navigation
   const handleSignup = () => {
+    if (loading) return; // Prevent navigation while loading
     navigation.navigate('SIGNUP');
   };
   // Email Validation
@@ -75,6 +80,7 @@ const LoginScreen = () => {
     setErrorMessage('');
 
     try {
+      console.log('Attempting login for:', email);
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -83,15 +89,18 @@ const LoginScreen = () => {
       console.log('Supabase login response:', { data, error });
 
       if (error) {
+        console.error('Login error:', error);
         setErrorMessage(error.message);
         return;
       }
 
       if (!data?.session) {
+        console.error('Login failed - no session returned');
         setErrorMessage('Login failed — no session returned.');
         return;
       }
 
+      console.log('Login successful, navigating to dashboard');
       navigation.navigate('DASHBOARD');
     } catch (err) {
       console.error('Unexpected login error:', err);
@@ -101,73 +110,135 @@ const LoginScreen = () => {
     }
   };
 
-    // Handle Password Reset
+  // Handle Password Reset
   const handlePasswordReset = async () => {
     if (!resetEmail.trim() || !emailRegex.test(resetEmail)) {
       Alert.alert('Invalid Email', 'Please enter a valid email address.');
-      return;
+      return false;
     }
+    
     setResetLoading(true);
     try {
+      console.log('Sending password reset email to:', resetEmail);
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail);
       if (error) {
+        console.error('Password reset error:', error);
         Alert.alert('Error', error.message);
       } else {
+        console.log('Password reset email sent successfully');
         Alert.alert(
           'Password Reset Email Sent',
-          'Please check your inbox for the reset link.'
+          'Please check your inbox for the reset link.',
         );
         setForgotVisiblee(false);
         setResetEmail('');
       }
     } catch (err) {
+      console.error('Unexpected password reset error:', err);
       Alert.alert('Error', 'Something went wrong. Please try again.');
     } finally {
       setResetLoading(false);
     }
   };
 
-  // Handle Google Login
-// Google Sign-In
-const handleGoogleSignIn = async () => {
-  setLoading(true);
-  try {
-    const config = {
-      issuer: 'https://accounts.google.com',
-      clientId: 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com',
-      redirectUrl: 'com.Omnix://login',
-      scopes: ['openid', 'profile', 'email'],
+  // Handle Google Login - Updated to match SignupScreen implementation
+  const handleGoogleSignIn = async () => {
+    try {
+      console.log('Initiating Google sign-in...');
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectUri,
+        },
+      });
+
+      if (error) {
+        console.error('Google OAuth error:', error);
+        Alert.alert('Google Sign-in Error', error.message);
+        return;
+      }
+
+      if (data?.url && await InAppBrowser.isAvailable()) {
+        console.log('Opening Google OAuth in InAppBrowser...');
+        const result = await InAppBrowser.open(data.url, {
+          dismissButtonStyle: 'cancel',
+          preferredBarTintColor: '#453AA4',
+          preferredControlTintColor: 'white',
+          showTitle: false,
+          enableUrlBarHiding: true,
+          enableDefaultShare: false
+        });
+        
+        console.log('InAppBrowser result:', result);
+        if (result.type === 'cancel') {
+          console.log('User cancelled Google sign-in');
+        }
+      } else {
+        console.error('InAppBrowser not available');
+        Alert.alert('Error', 'InAppBrowser is not available on this device');
+      }
+    } catch (err) {
+      console.error('Google sign-in error:', err);
+      Alert.alert('Unexpected Error', err.message || 'Google sign-in failed');
+    }
+  };
+
+  // Handle deep linking for authentication - Added to match SignupScreen
+  React.useEffect(() => {
+    const handleDeepLink = async (event) => {
+      console.log('Deep link received:', event.url);
+      const url = event.url;
+      
+      try {
+        const { data, error } = await supabase.auth.getSessionFromUrl({ url });
+        if (error) {
+          console.error('Session error:', error);
+          Alert.alert('Session Error', error.message);
+        } else if (data?.session) {
+          console.log('Session established successfully');
+          // Successfully authenticated, navigate to dashboard
+          navigation.navigate('DASHBOARD');
+        }
+      } catch (err) {
+        console.error('Deep link handling error:', err);
+        Alert.alert('Error', 'Failed to process authentication response');
+      }
     };
 
-    const authState = await authorize(config);
+    // Check if user is already authenticated
+    const checkAuthStatus = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          console.log('User already authenticated, redirecting to dashboard');
+          navigation.navigate('DASHBOARD');
+        }
+      } catch (err) {
+        console.error('Auth status check error:', err);
+      }
+    };
 
-    // Exchange Google access token for Supabase session
-    const { data, error } = await supabase.auth.signInWithIdToken({
-      provider: 'google',
-      token: authState.idToken,
-    });
+    checkAuthStatus();
 
-    if (error) {
-      Alert.alert('Login Error', error.message);
-    } else {
-      navigation.navigate('DASHBOARD');
-    }
-  } catch (err) {
-    console.error('Google sign-in error:', err);
-    Alert.alert('Error', 'Google sign-in failed.');
-  } finally {
-    setLoading(false);
-  }
-};
+    const subscription = Linking.addEventListener('url', handleDeepLink);
+    return () => subscription?.remove();
+  }, [navigation]);
 
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+    <TouchableWithoutFeedback style = {styles.feedbackAlert} onPress={Keyboard.dismiss}>
       <View style={styles.container}>
-        
         {/* Back Button */}
         <View style={styles.buttonContainer}>
-          <TouchableOpacity style={styles.backButtonWrapper} onPress={handleBack} disabled={loading}>
-            <Ionicons name="arrow-back-outline" size={35} color={colors.primary} />
+          <TouchableOpacity
+            style={styles.backButtonWrapper}
+            onPress={handleBack}
+            disabled={loading}
+          >
+            <Ionicons
+              name="arrow-back-outline"
+              size={35}
+              color={colors.primary}
+            />
           </TouchableOpacity>
         </View>
 
@@ -179,7 +250,11 @@ const handleGoogleSignIn = async () => {
         </View>
 
         {/* Error Message */}
-        {errorMessage ? <Text style={styles.errorMessage}>{errorMessage}</Text> : null}
+        {errorMessage ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorMessage}>{errorMessage}</Text>
+          </View>
+        ) : null}
 
         {/* Email Input */}
         <View style={styles.formContainer}>
@@ -194,6 +269,9 @@ const handleGoogleSignIn = async () => {
               editable={!loading}
               value={email}
               onChangeText={setEmail}
+              accessibilityLabel="Email input field"
+              accessibilityHint="Enter your email address for login"
+              autoCorrect={false}
             />
           </View>
         </View>
@@ -210,6 +288,9 @@ const handleGoogleSignIn = async () => {
               editable={!loading}
               value={password}
               onChangeText={setPassword}
+              accessibilityLabel="Password input field"
+              accessibilityHint="Enter your password for login"
+              autoCorrect={false}
             />
             <TouchableOpacity
               onPress={() => setSecureEntry(!secureEntry)}
@@ -222,8 +303,28 @@ const handleGoogleSignIn = async () => {
               />
             </TouchableOpacity>
           </View>
-          <TouchableOpacity disabled={loading}
-            onPress={() => setForgotVisiblee(true)}>
+          {/* Password Requirements
+          <Text
+            style={{
+              fontSize: 12,
+              marginLeft: 20,
+              color:
+                password.length === 0
+                  ? colors.secondary // Default color before typing
+                  : password.length >= 8 &&
+                    /\d/.test(password) &&
+                    /[!@#$%^&*]/.test(password)
+                  ? 'green' // Valid password criteria met
+                  : 'red', // Criteria not met while typing
+            }}
+          >
+            Must be at least 8 characters, include a number and a special
+            character
+          </Text> */}
+          <TouchableOpacity
+            disabled={loading}
+            onPress={() => setForgotVisiblee(true)}
+          >
             <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
           </TouchableOpacity>
         </View>
@@ -245,6 +346,8 @@ const handleGoogleSignIn = async () => {
           style={styles.googleButtonContainer}
           disabled={loading}
           onPress={handleGoogleSignIn}
+          accessibilityLabel="Sign in with Google"
+          accessibilityHint="Opens Google sign-in in a browser"
         >
           <Image
             source={require('../assets/google.png')}
@@ -266,6 +369,8 @@ const handleGoogleSignIn = async () => {
           visible={forgotVisible}
           animationType="slide"
           onRequestClose={() => setForgotVisiblee(false)}
+          accessibilityLabel="Forgot password modal"
+          accessibilityHint="Enter your email to receive a password reset link"
         >
           <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
             <View style={styles.modalOverlay}>
@@ -280,12 +385,17 @@ const handleGoogleSignIn = async () => {
                   value={resetEmail}
                   onChangeText={setResetEmail}
                   editable={!resetLoading}
+                  accessibilityLabel="Reset password email input"
+                  accessibilityHint="Enter your email address to receive a password reset link"
+                  autoCorrect={false}
                 />
                 <View style={styles.modalButtons}>
                   <TouchableOpacity
                     style={styles.modalCancel}
                     onPress={() => setForgotVisiblee(false)}
                     disabled={resetLoading}
+                    accessibilityLabel="Cancel button"
+                    accessibilityHint="Closes the password reset modal"
                   >
                     <Text style={styles.modalCancelText}>Cancel</Text>
                   </TouchableOpacity>
@@ -293,6 +403,8 @@ const handleGoogleSignIn = async () => {
                     style={styles.modalSubmit}
                     onPress={handlePasswordReset}
                     disabled={resetLoading}
+                    accessibilityLabel="Send reset link button"
+                    accessibilityHint="Sends a password reset link to your email"
                   >
                     {resetLoading ? (
                       <ActivityIndicator color={colors.white} />
@@ -318,6 +430,9 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.white,
     padding: 20,
   },
+  feedbackAlert: {
+    marginVertical: 20,
+  },
   buttonContainer: {
     marginTop: 20,
     height: 50,
@@ -341,8 +456,12 @@ export const styles = StyleSheet.create({
   errorMessage: {
     color: 'red',
     textAlign: 'center',
-    marginBottom: 10,
+    // marginVertical: 5,
     fontFamily: fonts.Regular,
+  },
+  errorContainer: {
+    marginVertical: 10,
+    paddingHorizontal: 10,
   },
   formContainer: {
     marginTop: 20,

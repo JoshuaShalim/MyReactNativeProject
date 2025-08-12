@@ -1,3 +1,4 @@
+import React, { useCallback, useMemo } from 'react';
 import {
   Image,
   StyleSheet,
@@ -8,40 +9,68 @@ import {
 
 import { useNavigation } from '@react-navigation/native';
 
+import { supabase } from '../lib/supabaseClient';
 import { colors } from '../utils/colors';
 import { fonts } from '../utils/fonts';
 
 const HomeScreen = () => {
   const navigation = useNavigation();
-  const handleLogin = () => {
+  
+  // Check if user is already authenticated
+  React.useEffect(() => {
+    const checkAuthStatus = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          console.log('User already authenticated, redirecting to dashboard');
+          console.log('Session user:', session.user?.email);
+          // Re-enable the redirect now that layout is fixed
+          navigation.navigate('DASHBOARD');
+        }
+      } catch (err) {
+        console.error('Auth status check error:', err);
+      }
+    };
+
+    checkAuthStatus();
+  }, [navigation]);
+
+  const handleLogin = useCallback(() => {
     // Navigate to Login Screen
     navigation.navigate('LOGIN');
-  };
-  const handleSignup = () => {
+  }, [navigation]);
+
+  const handleSignup = useCallback(() => {
     // Handle sign-up logic here
     navigation.navigate('SIGNUP');
-  };
+  }, [navigation]);
+
+  const memoizedStyles = useMemo(() => ({
+    loginButtonStyle: [
+      styles.loginButtonWrapper,
+      { backgroundColor: colors.primary },
+    ],
+    loginTextStyle: [styles.buttonText, { color: colors.white }],
+    signupTextStyle: [styles.buttonText, { color: colors.primary }],
+  }), []);
 
   return (
     <View style={styles.container}>
       <Image source={require('../assets/logo.png')} style={styles.logo} />
       <Image source={require('../assets/man.png')} style={styles.banner} />
-      <Text style={styles.title}>Lorem Ipsum Dollor</Text>
+      <Text style={styles.title}>Intelligence. Everywhere.</Text>
       <Text style={styles.subTitle}>
-        Lorem Ipsum is simply dummy text of the printing and typesetting
-        industry. Lorem Ipsum has been the industry's standard dummy text ever
-        since the 1500s, when an unknown printer took a galley of type and
-        scrambled it to make a type specimen book.
+      Omnix is your intelligent companion, harnessing AI to deliver personalized insights, streamline workflows,
+       and unlock opportunities across any domain — 
+       turning complex problems into clear, 
+       actionable solutions instantly.
       </Text>
       <View style={styles.buttonContainer}>
         <TouchableOpacity
-          style={[
-            styles.loginButtonWrapper,
-            { backgroundColor: colors.primary },
-          ]}
+          style={memoizedStyles.loginButtonStyle}
           onPress={handleLogin}
         >
-          <Text style={[styles.buttonText, { color: colors.white }]}>
+          <Text style={memoizedStyles.loginTextStyle}>
             Login
           </Text>
         </TouchableOpacity>
@@ -49,7 +78,7 @@ const HomeScreen = () => {
           style={styles.loginButtonWrapper}
           onPress={handleSignup}
         >
-          <Text style={[styles.buttonText, { color: colors.primary }]}>
+          <Text style={memoizedStyles.signupTextStyle}>
             Sign-Up
           </Text>
         </TouchableOpacity>
@@ -61,55 +90,66 @@ const HomeScreen = () => {
 export default HomeScreen;
 
 export const styles = StyleSheet.create({
-  // Add styles here if needed
   container: {
     flex: 1,
     backgroundColor: colors.white,
     alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 60,
+    paddingBottom: 40,
   },
   logo: {
-    height: 50,
-    width: 140,
-    marginVertical: 40,
+    height: 100,
+    width: "50%",
+    marginTop: 20,
+    marginBottom: 30,
   },
   banner: {
-    height: 250,
-    width: 230,
-    marginVertical: '200px',
+    height: 240,
+    width: 220,
+    marginBottom: 30,
   },
   title: {
-    fontSize: 40,
+    fontSize: 32,
     fontFamily: fonts.SemiBold,
-    paddingHorizontal: 20,
     textAlign: 'center',
     color: colors.primary,
-    marginTop: 70,
+    marginBottom: 30,
+    paddingHorizontal: 20,
   },
   subTitle: {
-    fontSize: 18,
+    fontSize: 16,
     textAlign: 'center',
     color: colors.secondary,
     fontFamily: fonts.Medium,
-    paddingHorizontal: 40,
-    marginVertical: 20,
+    paddingHorizontal: 20,
+    marginBottom: 30,
+    lineHeight: 24,
   },
   buttonContainer: {
     flexDirection: 'row',
-    marginTop: 20,
     borderWidth: 2,
     borderColor: colors.primary,
-    width: '75%',
-    height: 60,
-    borderRadius: 100,
+    width: '100%',
+    height: 58,
+    borderRadius: 29,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   loginButtonWrapper: {
     justifyContent: 'center',
     alignItems: 'center',
     width: '50%',
-    borderRadius: 98,
+    borderRadius: 27,
   },
   buttonText: {
-    fontSize: 20,
+    fontSize: 18,
     fontFamily: fonts.SemiBold,
   },
 });

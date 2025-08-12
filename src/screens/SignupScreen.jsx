@@ -3,12 +3,14 @@ import React, { useState } from 'react';
 import {
   Alert,
   Image,
+  Linking,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import InAppBrowser from 'react-native-inappbrowser-reborn';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import SimpleLineIcons from 'react-native-vector-icons/SimpleLineIcons';
 
@@ -29,11 +31,96 @@ const SignupScreen = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const redirectUri = 'com.omnix://login';
+  const handleGoogleSignup = async () => {
+  try {
+    console.log('Initiating Google sign-up...');
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+      redirectTo: redirectUri,  // Ensure this matches your app's redirect URI
+      },
+    });
+
+    if (error) {
+      console.error('Google OAuth error:', error);
+      Alert.alert('Google Sign-in Error', error.message);
+      return;
+    }
+
+    if (data?.url && await InAppBrowser.isAvailable()) {
+      console.log('Opening Google OAuth in InAppBrowser...');
+      const result = await InAppBrowser.open(data.url, {
+        dismissButtonStyle: 'cancel',
+        preferredBarTintColor: '#453AA4',
+        preferredControlTintColor: 'white',
+        showTitle: false,
+        enableUrlBarHiding: true,
+        enableDefaultShare: false
+      });
+      
+      console.log('InAppBrowser result:', result);
+      if (result.type === 'cancel') {
+        console.log('User cancelled Google sign-up');
+      }
+    } else {
+      console.error('InAppBrowser not available');
+      Alert.alert('Error', 'InAppBrowser is not available on this device');
+    }
+  } catch (err) {
+    console.error('Google sign-up error:', err);
+    Alert.alert('Unexpected Error', err.message || 'Google sign-up failed');
+  }
+};
+
+  // Handle deep linking for authentication
+React.useEffect(() => {
+  const handleDeepLink = async (event) => {
+    console.log('Deep link received:', event.url);
+    const url = event.url;
+    
+    try {
+      const { data, error } = await supabase.auth.getSessionFromUrl({ url });
+      if (error) {
+        console.error('Session error:', error);
+        Alert.alert('Session Error', error.message);
+      } else if (data?.session) {
+        console.log('Session established successfully');
+        navigation.navigate('DASHBOARD');
+      }
+    } catch (err) {
+      console.error('Deep link handling error:', err);
+      Alert.alert('Error', 'Failed to process authentication response');
+    }
+  };
+
+  // Check if user is already authenticated
+  const checkAuthStatus = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        console.log('User already authenticated, redirecting to dashboard');
+        navigation.navigate('DASHBOARD');
+      }
+    } catch (err) {
+      console.error('Auth status check error:', err);
+    }
+  };
+
+  checkAuthStatus();
+
+      const subscription = Linking.addEventListener('url', handleDeepLink);
+    return () => subscription?.remove();
+}, [navigation]);
+
+  // Function to handle back navigation
   const handleBack = () => {
+    if (loading) return; // Prevent navigation while loading
     // Navigate back to HomeScreen
     navigation.navigate('HOME');
   };
   const handleLogin = () => {
+    if (loading) return; // Prevent navigation while loading
     // navigate to Login screen
     navigation.navigate('LOGIN');
   };
@@ -41,6 +128,10 @@ const SignupScreen = () => {
   const validateForm = () => {
     // Email validation regex
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email.trim()) {
+      Alert.alert('Validation Error', 'Email is required');
+      return false;
+    }
     if (!emailRegex.test(email)) {
       Alert.alert('Invalid Email', 'Please enter a valid email address');
       return false;
@@ -48,6 +139,10 @@ const SignupScreen = () => {
 
     // Phone validation regex (digits only, min 8–10 numbers)
     const phoneRegex = /^[0-9]{8,15}$/;
+    if (!phone.trim()) {
+      Alert.alert('Validation Error', 'Phone number is required');
+      return false;
+    }
     if (!phoneRegex.test(phone)) {
       Alert.alert(
         'Invalid Phone',
@@ -58,6 +153,10 @@ const SignupScreen = () => {
 
     // Password validation regex
     const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*]).{8,}$/;
+    if (!password.trim()) {
+      Alert.alert('Validation Error', 'Password is required');
+      return false;
+    }
     if (!passwordRegex.test(password)) {
       Alert.alert(
         'Weak Password',
@@ -71,28 +170,35 @@ const SignupScreen = () => {
 
   // Function to handle form submission
   const handleSignup = async () => {
-    if (!validateForm()) return; // If validation fails, stop here
+  if (!validateForm()) return;
 
-    try {
-      setLoading(true);
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        phone,
-      });
+  try {
+    setLoading(true);
+    console.log('Attempting signup for:', email);
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { phone },
+        emailRedirectTo: 'com.omnix://login', // Updated to match the correct scheme
+      },
+    });
 
-      if (error) {
-        Alert.alert('Signup Error', error.message);
-      } else {
-        Alert.alert('Success', 'Please check your email for confirmation');
-        navigation.navigate('LOGIN');
-      }
-    } catch (err) {
-      Alert.alert('Unexpected Error', err.message);
-    } finally {
-      setLoading(false);
+    if (error) {
+      console.error('Signup error:', error);
+      Alert.alert('Signup Error', error.message);
+    } else {
+      console.log('Signup successful, confirmation email sent');
+      Alert.alert('Success', 'Please check your email for confirmation');
+      navigation.navigate('LOGIN');
     }
-  };
+  } catch (err) {
+    console.error('Unexpected signup error:', err);
+    Alert.alert('Unexpected Error', err.message || 'Signup failed');
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Render the Signup screen
   return (
@@ -124,6 +230,11 @@ const SignupScreen = () => {
             keyboardType="email-address"
             value={email}
             onChangeText={setEmail}
+            editable={!loading}
+            accessibilityLabel="Email input field"
+            accessibilityHint="Enter your email address for account creation"
+            autoCapitalize="none"
+            autoCorrect={false}
           />
         </View>
       </View>
@@ -142,6 +253,9 @@ const SignupScreen = () => {
             value={phone}
             onChangeText={text => setPhone(text.replace(/[^0-9]/g, ''))} // remove non-numbers
             maxLength={12} // limit to 12 digits
+            editable={!loading}
+            accessibilityLabel="Phone number input field"
+            accessibilityHint="Enter your phone number for account creation"
           />
         </View>
       </View>
@@ -156,6 +270,9 @@ const SignupScreen = () => {
             secureTextEntry={secureEntry}
             value={password}
             onChangeText={setPassword}
+            editable={!loading}
+            accessibilityLabel="Password input field"
+            accessibilityHint="Enter your password for account creation"
           />
           <TouchableOpacity onPress={() => setSecureEntry(!secureEntry)}>
             <Ionicons
@@ -165,17 +282,18 @@ const SignupScreen = () => {
             />
           </TouchableOpacity>
         </View>
-        {/* Password Requirements */}
         <Text
           style={{
             fontSize: 12,
             marginLeft: 20,
             color:
-              password.length >= 8 &&
-              /\d/.test(password) &&
-              /[!@#$%^&*]/.test(password)
-                ? 'green'
-                : 'red',
+              password.length === 0
+                ? colors.secondary // Default color before typing
+                : password.length >= 8 &&
+                  /\d/.test(password) &&
+                  /[!@#$%^&*]/.test(password)
+                ? 'green' // Valid password criteria met
+                : 'red', // Criteria not met while typing
           }}
         >
           Must be at least 8 characters, include a number and a special
@@ -186,18 +304,27 @@ const SignupScreen = () => {
         <Text style={styles.signupText}>Sign up</Text>
       </TouchableOpacity> */}
       <TouchableOpacity
-        style={styles.signupButtonWrapper}
+        style={[styles.signupButtonWrapper, loading && { opacity: 0.6 }]}
         onPress={handleSignup}
         disabled={loading}
+        accessibilityLabel="Sign up button"
+        accessibilityHint="Creates a new account with the provided information"
       >
         <Text style={styles.signupText}>
           {loading ? 'Signing up...' : 'Sign up'}
         </Text>
       </TouchableOpacity>
+
       {/* Divider */}
       <Text style={styles.continueText}>Or continue with</Text>
       {/* Google Auth Button */}
-      <TouchableOpacity style={styles.googleButtonContainer}>
+      <TouchableOpacity 
+        style={styles.googleButtonContainer}
+        onPress={handleGoogleSignup}
+        disabled={loading}
+        accessibilityLabel="Sign up with Google"
+        accessibilityHint="Opens Google sign-in in a browser"
+      >
         <Image
           source={require('../assets/google.png')}
           style={styles.googleImage}
@@ -240,7 +367,7 @@ const styles = StyleSheet.create({
   headingtext: {
     fontSize: 32,
     fontFamily: fonts.SemiBold,
-    colors: colors.secondary,
+    color: colors.primary,
   },
   formContainer: {
     marginTop: 20,

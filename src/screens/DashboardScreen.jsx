@@ -8,6 +8,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Alert,
 } from 'react-native';
 
 import { useNavigation } from '@react-navigation/native';
@@ -21,16 +22,60 @@ const DashboardScreen = () => {
   const [userEmail, setUserEmail] = useState('');
 
   useEffect(() => {
-    const session = supabase.auth.getSession().then(({ data }) => {
-      if (data.session?.user) {
-        setUserEmail(data.session.user.email);
+    const checkAuthStatus = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          console.log('No valid session, redirecting to login');
+          // No valid session, redirect to login
+          navigation.navigate('LOGIN');
+          return;
+        }
+        
+        if (session.user) {
+          console.log('User authenticated:', session.user.email);
+          setUserEmail(session.user.email);
+        }
+      } catch (err) {
+        console.error('Auth status check error:', err);
+        navigation.navigate('LOGIN');
       }
-    });
-  }, []);
+    };
+
+    checkAuthStatus();
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state change:', event, session ? 'session exists' : 'no session');
+        if (event === 'SIGNED_OUT' || !session) {
+          console.log('User signed out, redirecting to login');
+          navigation.navigate('LOGIN');
+        } else if (session.user) {
+          console.log('User authenticated:', session.user.email);
+          setUserEmail(session.user.email);
+        }
+      }
+    );
+
+    return () => subscription.unsubscribe();
+  }, [navigation]);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigation.navigate('LOGIN'); // change if your login screen name is different
+    try {
+      console.log('Logging out user...');
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Logout error:', error);
+        Alert.alert('Logout Error', error.message);
+      } else {
+        console.log('User logged out successfully');
+        navigation.navigate('LOGIN');
+      }
+    } catch (err) {
+      console.error('Unexpected logout error:', err);
+      Alert.alert('Error', 'Failed to logout. Please try again.');
+    }
   };
 
   return (
