@@ -1,6 +1,6 @@
-# React Native Supabase Authentication Prototype
+# Omnix — React Native Supabase Authentication
 
-A React Native authentication flow built with Supabase. The project covers mobile account creation, email/password sign-in, Google OAuth through an in-app browser, password reset, deep-link handling, session restoration, a protected dashboard, and sign-out.
+Omnix is a React Native authentication prototype built with Supabase. The project covers mobile account creation, email/password sign-in, Google OAuth through an in-app browser, password reset, deep-link handling, session restoration, a protected dashboard, and sign-out.
 
 ## Implemented features
 
